@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Барахолка — генератор комментариев</title>
+    <style>
+      :root {
+        --ink: #0f172a;
+        --muted: #64748b;
+        --line: #e2e8f0;
+        --bg: #f4f6f9;
+        --card: #ffffff;
+        --amber: #e8a33d;
+        --amber-dark: #b9791f;
+        --green: #16a34a;
+        --red: #dc2626;
+        --radius: 14px;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+        min-height: 100vh;
+      }
+      .container {
+        max-width: 640px;
+        margin: 0 auto;
+        padding: 28px 18px 60px;
+      }
+      h1 {
+        font-size: 1.25rem;
+        font-weight: 800;
+        margin-bottom: 4px;
+      }
+      .subtitle {
+        font-size: 0.85rem;
+        color: var(--muted);
+        margin-bottom: 20px;
+        line-height: 1.4;
+      }
+
+      .card {
+        background: var(--card);
+        border-radius: var(--radius);
+        padding: 18px 20px;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+        border: 1px solid var(--line);
+        margin-bottom: 14px;
+      }
+
+      /* Счётчик темпа */
+      .pace-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .pace-stats {
+        display: flex;
+        gap: 16px;
+      }
+      .pace-stat {
+        text-align: center;
+      }
+      .pace-value {
+        font-size: 1.3rem;
+        font-weight: 800;
+      }
+      .pace-label {
+        font-size: 0.68rem;
+        color: var(--muted);
+        margin-top: 1px;
+      }
+      .pace-reset {
+        font-size: 0.72rem;
+        color: var(--muted);
+        background: none;
+        border: none;
+        text-decoration: underline;
+        cursor: pointer;
+      }
+      .pace-warning {
+        margin-top: 10px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        background: rgba(220, 38, 38, 0.08);
+        color: #b91c1c;
+        font-size: 0.8rem;
+        line-height: 1.4;
+        display: none;
+      }
+      .pace-warning.show {
+        display: block;
+      }
+      .pace-ok {
+        margin-top: 10px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        background: rgba(22, 163, 74, 0.08);
+        color: #15803d;
+        font-size: 0.8rem;
+        display: none;
+      }
+      .pace-ok.show {
+        display: block;
+      }
+
+      .link-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.85rem;
+        margin-bottom: 12px;
+      }
+      .link-toggle input {
+        width: 16px;
+        height: 16px;
+      }
+
+      .generate-btn {
+        width: 100%;
+        padding: 13px;
+        background: var(--amber);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 0.95rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .generate-btn:hover {
+        background: var(--amber-dark);
+      }
+
+      .variant {
+        background: var(--bg);
+        border-radius: 10px;
+        padding: 13px 14px;
+        margin-top: 10px;
+        font-size: 0.9rem;
+        line-height: 1.5;
+      }
+      .variant.fill-in {
+        background: rgba(232, 163, 61, 0.08);
+        border: 1px dashed var(--amber);
+      }
+      .variant-tags {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+      }
+      .variant-text {
+        white-space: pre-wrap;
+      }
+      .variant-meta {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        margin-top: 8px;
+      }
+      .variant-tag {
+        font-size: 0.68rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 999px;
+      }
+      .variant-tag.with-link {
+        background: rgba(37, 99, 235, 0.1);
+        color: #1d4ed8;
+      }
+      .variant-tag.no-link {
+        background: rgba(100, 116, 139, 0.12);
+        color: var(--muted);
+      }
+      .variant-tag.fill {
+        background: rgba(232, 163, 61, 0.18);
+        color: var(--amber-dark);
+      }
+      .fill-input {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid var(--amber);
+        border-radius: 8px;
+        font-size: 0.85rem;
+        margin-bottom: 8px;
+        background: white;
+      }
+      .copy-btn {
+        font-size: 0.78rem;
+        font-weight: 600;
+        padding: 5px 12px;
+        border-radius: 8px;
+        background: var(--ink);
+        color: white;
+        border: none;
+        cursor: pointer;
+      }
+      .copy-btn.copied {
+        background: var(--green);
+      }
+
+      .empty-hint {
+        text-align: center;
+        color: var(--muted);
+        font-size: 0.85rem;
+        padding: 20px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>💬 Генератор комментариев</h1>
+      <p class="subtitle">
+        Личный инструмент, не постит ничего сам — только готовит текст,
+        публикуешь ты руками. Часть вариантов намеренно без ссылки, это не баг.
+      </p>
+
+      <!-- PACE TRACKER -->
+      <div class="card">
+        <div class="pace-row">
+          <div class="pace-stats">
+            <div class="pace-stat">
+              <div class="pace-value" id="withLinkCount">0</div>
+              <div class="pace-label">со ссылкой сегодня</div>
+            </div>
+            <div class="pace-stat">
+              <div class="pace-value" id="noLinkCount">0</div>
+              <div class="pace-label">без ссылки сегодня</div>
+            </div>
+          </div>
+          <button class="pace-reset" id="resetBtn">Сбросить счётчик</button>
+        </div>
+        <div class="pace-warning" id="paceWarning"></div>
+        <div class="pace-ok" id="paceOk"></div>
+      </div>
+
+      <!-- GENERATOR -->
+      <div class="card">
+        <label class="link-toggle">
+          <input type="checkbox" id="linkToggle" checked />
+          Иногда предлагать ссылку на бота (не в каждом варианте)
+        </label>
+        <button class="generate-btn" id="generateBtn">
+          ✨ Сгенерировать 5 вариантов
+        </button>
+        <div id="variantsWrap"></div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        "use strict";
+
+        const BOT_LINK = "t.me/byraholka_bot";
+        const STORAGE_KEY = "baraholka_comment_pace";
+        const PLACEHOLDER = "[товар]";
+
+        // ---------- Строительные блоки ----------
+        // Пишем от лица продукта ("мы"), под пост конкретного продавца.
+        // Упоминание сервиса — обязательный слот, без ссылки или со ссылкой,
+        // но никогда не пустое: смысл комментария и был в этом упоминании.
+
+        const OPENERS_PLAIN = [
+          "Ого, хорошая вещь!",
+          "Красота 🫰",
+          "Смотрим, стоящая вещь.",
+          "Заметили объявление, зацепило.",
+          "",
+          "",
+        ];
+
+        const OPENERS_FILL = [
+          `Отличный ${PLACEHOLDER}!`,
+          `${PLACEHOLDER} прям хочется забрать себе.`,
+          `Ого, ${PLACEHOLDER} в отличном состоянии.`,
+          `Такой ${PLACEHOLDER} обычно быстро находят, повезёт кому-то.`,
+        ];
+
+        const PRAISE = [
+          "Состояние отличное, сразу видно.",
+          "Цена адекватная, такое быстро заберут.",
+          "Хорошая находка для кого-то, честно.",
+          "",
+        ];
+
+        const HELP_PROMOTE = [
+          "Можем помочь, если хотите более широкий охват.",
+          "У нас размещение бесплатное, поэтому и продать обычно получается быстрее.",
+          "Если нужно, поможем с продвижением объявления.",
+          "",
+        ];
+
+        const SERVICE_WITH_LINK = [
+          `Мы Барахолка, бесплатная доска объявлений в Telegram, разместите и у нас тоже, платить не надо: ${BOT_LINK}`,
+          `У нас в Барахолке можно разместить бесплатно, без доплат за поднятие: ${BOT_LINK}`,
+          `Есть Барахолка в Телеграме, размещение и поднятие объявления бесплатные: ${BOT_LINK}`,
+          `Загляните к нам в Барахолку, всё бесплатно, ни за подъём, ни за что ещё доплачивать не надо: ${BOT_LINK}`,
+          `Можно глянуть Барахолку (byraholka), у нас размещение полностью бесплатное: ${BOT_LINK}`,
+        ];
+
+        // "Без ссылки" — всё равно называем бренд, просто без кликабельной
+        // ссылки в тексте, а не пропускаем упоминание сервиса совсем.
+        const SERVICE_NO_LINK = [
+          "Мы Барахолка, бесплатная доска объявлений в Telegram, поищите нас там.",
+          "Загляните к нам в Барахолку в Телеграме, размещение бесплатное.",
+          "Мы byraholka, доска объявлений в Telegram, у нас можно бесплатно разместить.",
+        ];
+
+        const GOODLUCK = [
+          "Удачной продажи 🫰",
+          "Пусть купят побыстрее.",
+          "Надеемся, заберут в ближайшее время 🫰",
+          "Удачи с продажей!",
+          "",
+        ];
+
+        function pick(arr) {
+          return arr[Math.floor(Math.random() * arr.length)];
+        }
+
+        function buildVariant(forceLink, useFillIn) {
+          const withLink = forceLink !== null ? forceLink : Math.random() < 0.55;
+          const opener = useFillIn ? pick(OPENERS_FILL) : pick(OPENERS_PLAIN);
+          const service = withLink ? pick(SERVICE_WITH_LINK) : pick(SERVICE_NO_LINK);
+
+          const parts = [opener, pick(PRAISE), pick(HELP_PROMOTE), service, pick(GOODLUCK)]
+            .filter((p) => p && p.trim().length > 0);
+
+          let text = parts.join(" ");
+
+          if (!text.includes("🫰") && Math.random() < 0.5) {
+            text += " 🫰";
+          }
+
+          return { text, withLink, isFillIn: useFillIn };
+        }
+
+        // ---------- Трекер темпа (localStorage, сбрасывается по дате) ----------
+
+        function todayKey() {
+          return new Date().toISOString().slice(0, 10);
+        }
+
+        function loadPace() {
+          try {
+            const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+            if (raw.date !== todayKey()) {
+              return { date: todayKey(), withLink: 0, noLink: 0 };
+            }
+            return raw;
+          } catch {
+            return { date: todayKey(), withLink: 0, noLink: 0 };
+          }
+        }
+
+        function savePace(pace) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(pace));
+        }
+
+        function renderPace() {
+          const pace = loadPace();
+          document.getElementById("withLinkCount").textContent = pace.withLink;
+          document.getElementById("noLinkCount").textContent = pace.noLink;
+
+          const total = pace.withLink + pace.noLink;
+          const withLinkShare = total > 0 ? pace.withLink / total : 0;
+
+          const warnEl = document.getElementById("paceWarning");
+          const okEl = document.getElementById("paceOk");
+          warnEl.classList.remove("show");
+          okEl.classList.remove("show");
+
+          if (pace.withLink >= 10) {
+            warnEl.textContent =
+              "⚠️ Уже " + pace.withLink + " промо-комментариев со ссылкой сегодня — это заметный объём. Стоит сделать паузу до завтра.";
+            warnEl.classList.add("show");
+          } else if (total >= 4 && withLinkShare > 0.7) {
+            warnEl.textContent =
+              "⚠️ Доля комментариев со ссылкой сегодня выше 70% — добавь больше вариантов без ссылки для баланса.";
+            warnEl.classList.add("show");
+          } else if (total >= 3) {
+            okEl.textContent = "✅ Темп и баланс выглядят нормально.";
+            okEl.classList.add("show");
+          }
+        }
+
+        document.getElementById("resetBtn").addEventListener("click", () => {
+          savePace({ date: todayKey(), withLink: 0, noLink: 0 });
+          renderPace();
+        });
+
+        // ---------- Генерация и рендер вариантов ----------
+
+        function renderVariants() {
+          const allowLink = document.getElementById("linkToggle").checked;
+          const wrap = document.getElementById("variantsWrap");
+          wrap.innerHTML = "";
+
+          const variants = [];
+          for (let i = 0; i < 5; i++) {
+            // Первый вариант — всегда с [товар] для ручного заполнения.
+            // Из остальных четырёх хотя бы один — без ссылки, если ссылки
+            // вообще разрешены тумблером.
+            const useFillIn = i === 0;
+            const forceLink = !allowLink ? false : i === 1 ? false : null;
+            variants.push(buildVariant(forceLink, useFillIn));
+          }
+
+          variants.forEach((v) => {
+            const el = document.createElement("div");
+            el.className = "variant" + (v.isFillIn ? " fill-in" : "");
+
+            const fillInputHtml = v.isFillIn
+              ? `<input type="text" class="fill-input" placeholder="впиши товар, например: блузка" />`
+              : "";
+
+            el.innerHTML = `
+              <div class="variant-tags">
+                <span class="variant-tag ${v.withLink ? "with-link" : "no-link"}">
+                  ${v.withLink ? "со ссылкой" : "без ссылки"}
+                </span>
+                ${v.isFillIn ? '<span class="variant-tag fill">✏️ впиши товар</span>' : ""}
+              </div>
+              ${fillInputHtml}
+              <div class="variant-text">${escapeHtml(v.text)}</div>
+              <div class="variant-meta">
+                <button class="copy-btn">Скопировать</button>
+              </div>
+            `;
+
+            const textEl = el.querySelector(".variant-text");
+            let currentText = v.text;
+
+            if (v.isFillIn) {
+              const input = el.querySelector(".fill-input");
+              input.addEventListener("input", () => {
+                const word = input.value.trim();
+                currentText = word ? v.text.split(PLACEHOLDER).join(word) : v.text;
+                textEl.textContent = currentText;
+              });
+            }
+
+            const btn = el.querySelector(".copy-btn");
+            btn.addEventListener("click", () => {
+              // Счётчик обновляем по факту нажатия — это отражает намерение
+              // использовать вариант, а не зависит от капризов Clipboard API.
+              const pace = loadPace();
+              if (v.withLink) pace.withLink += 1;
+              else pace.noLink += 1;
+              savePace(pace);
+              renderPace();
+
+              copyText(currentText)
+                .then(() => {
+                  btn.textContent = "Скопировано ✓";
+                  btn.classList.add("copied");
+                })
+                .catch(() => {
+                  btn.textContent = "Не скопировалось, выдели вручную";
+                })
+                .finally(() => {
+                  setTimeout(() => {
+                    btn.textContent = "Скопировать";
+                    btn.classList.remove("copied");
+                  }, 1800);
+                });
+            });
+            wrap.appendChild(el);
+          });
+        }
+
+        // navigator.clipboard требует "безопасный контекст" (https/localhost) —
+        // при открытии файла напрямую (file://) он часто тихо не срабатывает.
+        // Поэтому сначала пробуем его, а если не вышло — используем textarea
+        // + execCommand, это работает даже при открытии файла двойным кликом.
+        function copyText(text) {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            return navigator.clipboard.writeText(text).catch(() => copyFallback(text));
+          }
+          return copyFallback(text);
+        }
+
+        function copyFallback(text) {
+          return new Promise((resolve, reject) => {
+            const ta = document.createElement("textarea");
+            ta.value = text;
+            ta.style.position = "fixed";
+            ta.style.left = "-9999px";
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            try {
+              const ok = document.execCommand("copy");
+              document.body.removeChild(ta);
+              ok ? resolve() : reject(new Error("execCommand failed"));
+            } catch (e) {
+              document.body.removeChild(ta);
+              reject(e);
+            }
+          });
+        }
+        function escapeHtml(str) {
+          return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+        }
+
+        document.getElementById("generateBtn").addEventListener("click", renderVariants);
+
+        renderPace();
+      })();
+    </script>
+  </body>
+</html>
