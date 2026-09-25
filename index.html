@@ -214,6 +214,29 @@
         font-size: 0.85rem;
         padding: 20px 0;
       }
+
+      .load-error {
+        display: none;
+        margin-bottom: 12px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: rgba(220, 38, 38, 0.08);
+        color: #b91c1c;
+        font-size: 0.8rem;
+        line-height: 1.5;
+      }
+      .load-error.show {
+        display: block;
+      }
+      .load-error code {
+        background: rgba(0, 0, 0, 0.06);
+        padding: 1px 5px;
+        border-radius: 4px;
+      }
+      .generate-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
     </style>
   </head>
   <body>
@@ -245,11 +268,16 @@
 
       <!-- GENERATOR -->
       <div class="card">
+        <div class="load-error" id="loadError"></div>
         <label class="link-toggle">
           <input type="checkbox" id="linkToggle" checked />
           Иногда предлагать ссылку на бота (не в каждом варианте)
         </label>
-        <button class="generate-btn" id="generateBtn">
+        <label class="link-toggle">
+          <input type="checkbox" id="multiItemToggle" />
+          В посте продают сразу несколько вещей
+        </label>
+        <button class="generate-btn" id="generateBtn" disabled>
           ✨ Сгенерировать 5 вариантов
         </button>
         <div id="variantsWrap"></div>
@@ -263,77 +291,65 @@
         const BOT_LINK = "t.me/byraholka_bot";
         const STORAGE_KEY = "baraholka_comment_pace";
         const PLACEHOLDER = "[товар]";
+        const PHRASES_URL = "./phrases.json";
 
-        // ---------- Строительные блоки ----------
-        // Пишем от лица продукта ("мы"), под пост конкретного продавца.
-        // Упоминание сервиса — обязательный слот, без ссылки или со ссылкой,
-        // но никогда не пустое: смысл комментария и был в этом упоминании.
+        let PHRASES = null;
 
-        const OPENERS_PLAIN = [
-          "Ого, хорошая вещь!",
-          "Красота 🫰",
-          "Смотрим, стоящая вещь.",
-          "Заметили объявление, зацепило.",
-          "",
-          "",
-        ];
-
-        const OPENERS_FILL = [
-          `Отличный ${PLACEHOLDER}!`,
-          `${PLACEHOLDER} прям хочется забрать себе.`,
-          `Ого, ${PLACEHOLDER} в отличном состоянии.`,
-          `Такой ${PLACEHOLDER} обычно быстро находят, повезёт кому-то.`,
-        ];
-
-        const PRAISE = [
-          "Состояние отличное, сразу видно.",
-          "Цена адекватная, такое быстро заберут.",
-          "Хорошая находка для кого-то, честно.",
-          "",
-        ];
-
-        const HELP_PROMOTE = [
-          "Можем помочь, если хотите более широкий охват.",
-          "У нас размещение бесплатное, поэтому и продать обычно получается быстрее.",
-          "Если нужно, поможем с продвижением объявления.",
-          "",
-        ];
-
-        const SERVICE_WITH_LINK = [
-          `Мы Барахолка, бесплатная доска объявлений в Telegram, разместите и у нас тоже, платить не надо: ${BOT_LINK}`,
-          `У нас в Барахолке можно разместить бесплатно, без доплат за поднятие: ${BOT_LINK}`,
-          `Есть Барахолка в Телеграме, размещение и поднятие объявления бесплатные: ${BOT_LINK}`,
-          `Загляните к нам в Барахолку, всё бесплатно, ни за подъём, ни за что ещё доплачивать не надо: ${BOT_LINK}`,
-          `Можно глянуть Барахолку (byraholka), у нас размещение полностью бесплатное: ${BOT_LINK}`,
-        ];
-
-        // "Без ссылки" — всё равно называем бренд, просто без кликабельной
-        // ссылки в тексте, а не пропускаем упоминание сервиса совсем.
-        const SERVICE_NO_LINK = [
-          "Мы Барахолка, бесплатная доска объявлений в Telegram, поищите нас там.",
-          "Загляните к нам в Барахолку в Телеграме, размещение бесплатное.",
-          "Мы byraholka, доска объявлений в Telegram, у нас можно бесплатно разместить.",
-        ];
-
-        const GOODLUCK = [
-          "Удачной продажи 🫰",
-          "Пусть купят побыстрее.",
-          "Надеемся, заберут в ближайшее время 🫰",
-          "Удачи с продажей!",
-          "",
-        ];
+        async function loadPhrases() {
+          try {
+            const res = await fetch(PHRASES_URL);
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            PHRASES = await res.json();
+            document.getElementById("generateBtn").disabled = false;
+            document.getElementById("loadError").classList.remove("show");
+          } catch (e) {
+            console.error("Не удалось загрузить phrases.json:", e);
+            document.getElementById("loadError").classList.add("show");
+            document.getElementById("loadError").innerHTML =
+              "Не получилось загрузить <code>phrases.json</code>. Если открыли файл двойным кликом — " +
+              "браузер блокирует загрузку соседних файлов так (file://). Откройте папку через локальный сервер: " +
+              "<code>npx serve .</code> в терминале, затем зайдите на адрес из вывода команды.";
+          }
+        }
 
         function pick(arr) {
           return arr[Math.floor(Math.random() * arr.length)];
         }
 
-        function buildVariant(forceLink, useFillIn) {
-          const withLink = forceLink !== null ? forceLink : Math.random() < 0.55;
-          const opener = useFillIn ? pick(OPENERS_FILL) : pick(OPENERS_PLAIN);
-          const service = withLink ? pick(SERVICE_WITH_LINK) : pick(SERVICE_NO_LINK);
+        function withLinkFilled(template) {
+          return template.replace("{LINK}", BOT_LINK);
+        }
 
-          const parts = [opener, pick(PRAISE), pick(HELP_PROMOTE), service, pick(GOODLUCK)]
-            .filter((p) => p && p.trim().length > 0);
+        function buildVariant(forceLink, useFillIn, multiItem) {
+          const withLink =
+            forceLink !== null ? forceLink : Math.random() < 0.55;
+
+          let opener, service;
+          if (multiItem) {
+            opener = pick(PHRASES.multi_item_openers);
+            service = withLinkFilled(
+              withLink
+                ? pick(PHRASES.multi_item_pitch_with_link)
+                : pick(PHRASES.multi_item_pitch_no_link),
+            );
+          } else {
+            opener = useFillIn
+              ? pick(PHRASES.openers_fill)
+              : pick(PHRASES.openers_plain);
+            service = withLinkFilled(
+              withLink
+                ? pick(PHRASES.service_with_link)
+                : pick(PHRASES.service_no_link),
+            );
+          }
+
+          const parts = [
+            opener,
+            pick(PHRASES.praise),
+            pick(PHRASES.help_promote),
+            service,
+            pick(PHRASES.goodluck),
+          ].filter((p) => p && p.trim().length > 0);
 
           let text = parts.join(" ");
 
@@ -341,7 +357,7 @@
             text += " 🫰";
           }
 
-          return { text, withLink, isFillIn: useFillIn };
+          return { text, withLink, isFillIn: useFillIn && !multiItem };
         }
 
         // ---------- Трекер темпа (localStorage, сбрасывается по дате) ----------
@@ -381,7 +397,9 @@
 
           if (pace.withLink >= 10) {
             warnEl.textContent =
-              "⚠️ Уже " + pace.withLink + " промо-комментариев со ссылкой сегодня — это заметный объём. Стоит сделать паузу до завтра.";
+              "⚠️ Уже " +
+              pace.withLink +
+              " промо-комментариев со ссылкой сегодня — это заметный объём. Стоит сделать паузу до завтра.";
             warnEl.classList.add("show");
           } else if (total >= 4 && withLinkShare > 0.7) {
             warnEl.textContent =
@@ -401,18 +419,19 @@
         // ---------- Генерация и рендер вариантов ----------
 
         function renderVariants() {
+          if (!PHRASES) return;
           const allowLink = document.getElementById("linkToggle").checked;
+          const multiItem = document.getElementById("multiItemToggle").checked;
           const wrap = document.getElementById("variantsWrap");
           wrap.innerHTML = "";
 
           const variants = [];
           for (let i = 0; i < 5; i++) {
-            // Первый вариант — всегда с [товар] для ручного заполнения.
-            // Из остальных четырёх хотя бы один — без ссылки, если ссылки
-            // вообще разрешены тумблером.
-            const useFillIn = i === 0;
+            // Режим "заполни товар" не подходит для поста с несколькими вещами —
+            // там нет одного [товар], который можно вписать.
+            const useFillIn = !multiItem && i === 0;
             const forceLink = !allowLink ? false : i === 1 ? false : null;
-            variants.push(buildVariant(forceLink, useFillIn));
+            variants.push(buildVariant(forceLink, useFillIn, multiItem));
           }
 
           variants.forEach((v) => {
@@ -444,7 +463,9 @@
               const input = el.querySelector(".fill-input");
               input.addEventListener("input", () => {
                 const word = input.value.trim();
-                currentText = word ? v.text.split(PLACEHOLDER).join(word) : v.text;
+                currentText = word
+                  ? v.text.split(PLACEHOLDER).join(word)
+                  : v.text;
                 textEl.textContent = currentText;
               });
             }
@@ -484,7 +505,9 @@
         // + execCommand, это работает даже при открытии файла двойным кликом.
         function copyText(text) {
           if (navigator.clipboard && navigator.clipboard.writeText) {
-            return navigator.clipboard.writeText(text).catch(() => copyFallback(text));
+            return navigator.clipboard
+              .writeText(text)
+              .catch(() => copyFallback(text));
           }
           return copyFallback(text);
         }
@@ -509,12 +532,25 @@
           });
         }
         function escapeHtml(str) {
-          return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+          return String(str).replace(
+            /[&<>"']/g,
+            (c) =>
+              ({
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#39;",
+              })[c],
+          );
         }
 
-        document.getElementById("generateBtn").addEventListener("click", renderVariants);
+        document
+          .getElementById("generateBtn")
+          .addEventListener("click", renderVariants);
 
         renderPace();
+        loadPhrases();
       })();
     </script>
   </body>
